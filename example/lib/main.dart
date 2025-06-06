@@ -631,6 +631,10 @@ class _MyAppState extends State<MyApp> {
                 print('This button is for Web platform only');
               }
             }),
+            const RoktLayout(
+              key: ValueKey('layout1'),
+              placeholderName: "Location1"
+            ),
             buildButton('Android - Select Placements', () async {
               if (!kIsWeb && Platform.isAndroid) {
                 // Ensure user is identified before calling Rokt
@@ -643,7 +647,7 @@ class _MyAppState extends State<MyApp> {
                   await mpInstance?.identity.identify(identityRequest: identityRequest);
                   
                   mpInstance?.rokt.selectPlacements(
-                    placementId: 'RoktExperience',
+                    placementId: 'readmorelayout',
                     attributes: {
                       'email': 'android-user@example.com',
                       'platform': 'android',

@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:mparticle_flutter_sdk/events/commerce_event.dart';
 import 'package:mparticle_flutter_sdk/events/event_type.dart';
@@ -13,6 +14,7 @@ import 'package:mparticle_flutter_sdk/events/product_action_type.dart';
 import 'package:mparticle_flutter_sdk/events/promotion_action_type.dart';
 import 'package:mparticle_flutter_sdk/identity/identity_type.dart';
 import 'package:mparticle_flutter_sdk/apple/authorization_status.dart';
+import 'package:mparticle_flutter_sdk/kits/widget_controller.dart';
 import 'package:mparticle_flutter_sdk/src/commerce/commerce_helpers.dart';
 import 'package:mparticle_flutter_sdk/src/identity/identity_helpers.dart';
 import 'package:mparticle_flutter_sdk/src/user.dart';
@@ -21,6 +23,12 @@ import 'events/mp_event.dart';
 import 'events/screen_event.dart';
 import 'identity/alias_request.dart';
 import 'identity/identity_api_result.dart';
+
+part './kits/rokt_layout.dart';
+
+/// Internal callBack for Rokt Sdk
+typedef RoktCallbackInternal = void Function(dynamic msg);
+
 /// The interface that implements the mParticle Dart SDK.
 class MparticleFlutterSdk {
   static MparticleFlutterSdk? _instance;
@@ -55,6 +63,9 @@ class MparticleFlutterSdk {
   /// The Rokt API to make Rokt-specific calls.
   Rokt rokt = new Rokt._();
 
+  final Map<int, RoktCallbackInternal> _callbacksById = {};
+  static final Map<int, String> _placeholders = {};
+
   /// Returns the appName set in your web SDK.  There is no iOS or Android equivalent.
   Future<String?> get getAppName async {
     final String? appName = await _channel.invokeMethod('getAppName');
@@ -72,6 +83,14 @@ class MparticleFlutterSdk {
     required int kit,
   }) async {
     return await _channel.invokeMethod('isKitActive', {'kitId': kit});
+  }
+
+    /// Placeholders are attached to be passed to Rokt Execute
+  void attachPlaceholder({required int id, required String name}) {
+    print('MparticleFlutterSdk attachPlaceholder');
+    // Prevent duplicate placeholders with same name
+    _placeholders.removeWhere((key, value) => value == name);
+    _placeholders[id] = name;
   }
 
   /// Logs a product commerce event with an [productActionType], a promotion commerce event with a [eventType], and an impression commerce event if neither of the prior are implemented.
@@ -291,9 +310,15 @@ class Rokt {
     required String placementId,
     Map<String, dynamic>? attributes,
   }) async {
-    return await _channel.invokeMethod('roktSelectPlacements', {
+    var params = {
       'placementId': placementId,
       'attributes': attributes,
-    });
+    };
+    
+    if (MparticleFlutterSdk._placeholders.isNotEmpty) {
+      params['placeholders'] = MparticleFlutterSdk._placeholders;
+    }
+    
+    return await _channel.invokeMethod('roktSelectPlacements', params);
   }
 }

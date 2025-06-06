@@ -25,9 +25,11 @@ import com.mparticle.commerce.*
 import com.mparticle.consent.CCPAConsent
 import com.mparticle.consent.ConsentState
 import com.mparticle.consent.GDPRConsent
+import com.mparticle.rokt.RoktEmbeddedView
 
 import org.json.JSONObject
 import kotlin.IllegalArgumentException
+import java.lang.ref.WeakReference
 
 
 /** MparticleFlutterSdkPlugin */
@@ -38,10 +40,16 @@ class MparticleFlutterSdkPlugin: FlutterPlugin, MethodCallHandler {
   /// when the Flutter Engine is detached from the Activity
   private lateinit var channel: MethodChannel
   private val TAG = "MparticleFlutterSdkPlugin"
+  private lateinit var layoutFactory: RoktLayoutFactory
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "mparticle_flutter_sdk")
     channel.setMethodCallHandler(this)
+    layoutFactory = RoktLayoutFactory(flutterPluginBinding.binaryMessenger)
+    flutterPluginBinding.platformViewRegistry.registerViewFactory(
+        VIEW_TYPE,
+        layoutFactory,
+    )
   }
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -678,8 +686,17 @@ class MparticleFlutterSdkPlugin: FlutterPlugin, MethodCallHandler {
     try {
       val placementId: String? = call.argument("placementId")
       val attributes: Map<String, Any?>? = call.argument("attributes")
+      val placeHolders: MutableMap<String, WeakReference<RoktEmbeddedView>> = mutableMapOf()
+
       Log.d(TAG, "roktSelectPlacements - placementId: $placementId")
       Log.d(TAG, "roktSelectPlacements - attributes: $attributes")
+      call.argument<HashMap<Int, String>>("placeholders")?.entries?.forEach {
+        if (layoutFactory.nativeViews[it.key] != null) {
+            placeHolders[it.value] = WeakReference(layoutFactory.nativeViews[it.key]!!)
+        }
+      }
+      println("ROKT placeHolders $placeHolders")
+        placeHolders.forEach { (key, value) -> println("ROKT placeholders key $key value ${value.get()}") }
 
       if (placementId == null) {
         result.error(TAG, "Missing placementId", null)
@@ -693,7 +710,24 @@ class MparticleFlutterSdkPlugin: FlutterPlugin, MethodCallHandler {
       
       Log.d(TAG, "roktSelectPlacements - stringAttributes: $stringAttributes")
       MParticle.getInstance()?.let { instance ->
-        instance.Rokt()?.selectPlacements(placementId, stringAttributes)
+        instance.Rokt()?.selectPlacements(placementId, stringAttributes, object: MParticle.MpRoktEventCallback {
+          override fun onLoad() {
+            println("Rokt onLoad")
+          }
+
+          override fun onUnload(p0: MParticle.UnloadReasons?) {
+            println("Rokt onUnload")
+          }
+
+          override fun onShouldShowLoadingIndicator() {
+            println("Rokt onShouldShowLoadingIndicator")
+          }
+
+          override fun onShouldHideLoadingIndicator() {
+            println("Rokt onShouldHideLoadingIndicator")
+          }
+
+        }, placeHolders.takeIf { it.isNotEmpty() }, null)
         result.success(true)
       } ?: result.error(TAG, "No mParticle instance exists", null)
     } catch (e: Exception) {
@@ -865,5 +899,9 @@ class MparticleFlutterSdkPlugin: FlutterPlugin, MethodCallHandler {
       result.error(TAG, ex.message, null)
       null
     }
+  }
+
+  companion object {
+    private const val VIEW_TYPE = "rokt_sdk.rokt.com/rokt_layout"
   }
 }
