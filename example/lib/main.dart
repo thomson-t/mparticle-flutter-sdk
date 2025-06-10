@@ -675,7 +675,7 @@ class _MyAppState extends State<MyApp> {
                   await mpInstance?.identity.identify(identityRequest: identityRequest);
                   
                   mpInstance?.rokt.selectPlacements(
-                    placementId: 'RoktLayout',
+                    placementId: 'readmorelayout',
                     attributes: {
                       'email': 'ios-user@example.com',
                       'platform': 'ios',

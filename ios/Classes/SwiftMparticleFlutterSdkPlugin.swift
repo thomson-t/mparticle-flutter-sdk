@@ -3,10 +3,20 @@ import UIKit
 import mParticle_Apple_SDK
 
 public class SwiftMparticleFlutterSdkPlugin: NSObject, FlutterPlugin {
+
+  fileprivate static let VIEW_CALL_DELEGATE = "rokt_sdk.rokt.com/rokt_layout"
+  let roktLayoutFactory: RoktLayoutFactory
+  let channel: FlutterMethodChannel
+
+  init(messenger: FlutterBinaryMessenger) {
+    self.roktLayoutFactory = RoktLayoutFactory(messenger: messenger)
+    self.channel = FlutterMethodChannel(name: "mparticle_flutter_sdk", binaryMessenger: messenger)
+  }
+
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "mparticle_flutter_sdk", binaryMessenger: registrar.messenger())
-    let instance = SwiftMparticleFlutterSdkPlugin()
-    registrar.addMethodCallDelegate(instance, channel: channel)
+    let instance = SwiftMparticleFlutterSdkPlugin(messenger: registrar.messenger())
+    registrar.addMethodCallDelegate(instance, channel: instance.channel)
+    registrar.register(instance.roktLayoutFactory, withId: SwiftMparticleFlutterSdkPlugin.VIEW_CALL_DELEGATE)
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -492,7 +502,29 @@ public class SwiftMparticleFlutterSdkPlugin: NSObject, FlutterPlugin {
         if let callArguments = call.arguments as? [String: Any],
            let placementId = callArguments["placementId"] as? String {
             let attributes = callArguments["attributes"] as? [String: String] ?? [:]
-            MParticle.sharedInstance().rokt.selectPlacements(placementId, attributes: attributes)
+
+            var placeholders: [String: MPRoktEmbeddedView] = [:]
+            if let placeholderDict = callArguments["placeholders"] as? [Int64: String] {
+                for (key, value) in placeholderDict {
+                    if let roktLayoutView = roktLayoutFactory.platformViews[key] {
+                        placeholders[value] = roktLayoutView.roktEmbeddedView
+                    }
+                }
+            }
+            
+            let callback = MPRoktEventCallback()
+            if let placeholderDict = callArguments["placeholders"] as? [Int64: String] {
+                callback.onEmbeddedSizeChange = { [placeholderDict] viewId, height in
+                    for (key, value) in placeholderDict {
+                        guard let platformView = self.roktLayoutFactory.platformViews[key] else {
+                            continue
+                        }
+                        platformView.sendUpdatedHeight(height: height)
+                    }
+                }
+            }
+            
+            MParticle.sharedInstance().rokt.selectPlacements(placementId, attributes: attributes, placements: placeholders, callbacks: callback)
             result(true)
         } else {
             print("Incorrect argument for \(call.method) iOS method")

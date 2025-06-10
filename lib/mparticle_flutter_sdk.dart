@@ -87,7 +87,6 @@ class MparticleFlutterSdk {
 
     /// Placeholders are attached to be passed to Rokt Execute
   void attachPlaceholder({required int id, required String name}) {
-    print('MparticleFlutterSdk attachPlaceholder');
     // Prevent duplicate placeholders with same name
     _placeholders.removeWhere((key, value) => value == name);
     _placeholders[id] = name;

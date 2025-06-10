@@ -34,6 +34,7 @@ class _RoktContainerState extends State<RoktLayout>
   double _top = 0;
   double _right = 0;
   double _bottom = 0;
+  LayoutController? _layoutController;
 
   @override
   bool get wantKeepAlive => true;
@@ -47,6 +48,12 @@ class _RoktContainerState extends State<RoktLayout>
     _bottom = 0;
     print('RoktLayout initState');
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _layoutController = null;
+    super.dispose();
   }
 
   void _changeHeight(double newHeight) {
@@ -82,10 +89,9 @@ class _RoktContainerState extends State<RoktLayout>
 
   void _onPlatformViewCreated(int id) {
     print('RoktLayout _onPlatformViewCreated');
-    MparticleFlutterSdk._instance!
-        .attachPlaceholder(id: id, name: widget.placeholderName);
-    print('RoktLayout attachPlaceholder');
-    LayoutController(
+    MparticleFlutterSdk.getInstance().then((value) => value?.attachPlaceholder(id: id, name: widget.placeholderName));
+
+    _layoutController = LayoutController(
         id: id,
         sizeChangeCallback: _changeHeight,
         paddingChangeCallback: _changePadding);
